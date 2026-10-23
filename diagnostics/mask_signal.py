@@ -1,4 +1,4 @@
-"""Trace the failing Windows interaction without running the full CI suite."""
+"""Trace the scatter-mask interaction in its full installed-suite context."""
 import json
 import pathlib
 import platform
@@ -9,17 +9,19 @@ import sys
 import numpy
 import pytest
 from silx.gui import qt
-from silx.gui.plot.test import test_scattermasktoolswidget as tests
+import silx
 
 
 def trace(label, **values):
     print('MASK_TRACE ' + json.dumps(dict(label=label, **values), default=str), flush=True)
 
 
-original_drag = tests.TestScatterMaskToolsWidget._drag
+original_drag = None
 
 
 def traced_drag(self):
+    if self._testMethodName != 'testSigMaskChangedEmitted':
+        return original_drag(self)
     handle = self.plot.getWidgetHandle()
     scatter = self.plot.getActiveScatter()
     center = (handle.width() // 2, handle.height() // 2)
@@ -48,14 +50,27 @@ def traced_drag(self):
         trace('after_drag', nonzero_mask=int(numpy.count_nonzero(self.maskWidget.getSelectionMask())))
 
 
-tests.TestScatterMaskToolsWidget._drag = traced_drag
+class TracePlugin:
+    def pytest_collection_modifyitems(self, items):
+        global original_drag
+        for item in items:
+            if item.name == 'testSigMaskChangedEmitted' and item.cls.__name__ == 'TestScatterMaskToolsWidget':
+                original_drag = item.cls._drag
+                item.cls._drag = traced_drag
+                trace('instrumented', nodeid=item.nodeid, preceding_tests=[entry.nodeid for entry in items[max(0, items.index(item) - 8):items.index(item)]])
+                break
+        else:
+            raise RuntimeError('Target test missing from full-suite collection')
+
 trace('environment', platform=platform.platform(), python=sys.version, binding=qt.BINDING, qt=qt.qVersion(), pyqt=qt.PYQT_VERSION_STR, numpy=numpy.__version__)
-path = pathlib.Path(tests.__file__).resolve()
+path = pathlib.Path(silx.__file__).resolve().parent
+output = pathlib.Path(__file__).resolve().parent / 'output'
+output.mkdir(exist_ok=True)
 original_directory = os.getcwd()
 with tempfile.TemporaryDirectory(prefix='silx-mask-trace-') as directory:
     try:
         os.chdir(directory)
-        result = pytest.main([str(path) + '::TestScatterMaskToolsWidget::testSigMaskChangedEmitted', '--rootdir=' + str(path.parents[3]), '--qt-binding=PyQt5', '-s', '-v'])
+        result = pytest.main([str(path), '--rootdir=' + str(path), '--qt-binding=PyQt5', '-s', '-vv', '--junitxml=' + str(output / 'full-suite.xml')], plugins=[TracePlugin()])
     finally:
         os.chdir(original_directory)
 sys.exit(result)
