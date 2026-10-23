@@ -54,9 +54,10 @@ class TracePlugin:
     def pytest_collection_modifyitems(self, items):
         global original_drag
         for item in items:
-            if item.name == 'testSigMaskChangedEmitted' and item.cls.__name__ == 'TestScatterMaskToolsWidget':
-                original_drag = item.cls._drag
-                item.cls._drag = traced_drag
+            if item.nodeid.endswith('test_scattermasktoolswidget.py::TestScatterMaskToolsWidget::testSigMaskChangedEmitted'):
+                case = item.module.TestScatterMaskToolsWidget
+                original_drag = case._drag
+                case._drag = traced_drag
                 trace('instrumented', nodeid=item.nodeid, preceding_tests=[entry.nodeid for entry in items[max(0, items.index(item) - 8):items.index(item)]])
                 break
         else:
