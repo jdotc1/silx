@@ -2,6 +2,8 @@
 import json
 import pathlib
 import platform
+import os
+import tempfile
 import sys
 
 import numpy
@@ -48,5 +50,8 @@ def traced_drag(self):
 
 tests.TestScatterMaskToolsWidget._drag = traced_drag
 trace('environment', platform=platform.platform(), python=sys.version, binding=qt.BINDING, qt=qt.qVersion(), pyqt=qt.PYQT_VERSION_STR, numpy=numpy.__version__)
-path = pathlib.Path(tests.__file__)
-sys.exit(pytest.main([str(path) + '::TestScatterMaskToolsWidget::testSigMaskChangedEmitted', '--qt-binding=PyQt5', '-s', '-v']))
+path = pathlib.Path(tests.__file__).resolve()
+with tempfile.TemporaryDirectory(prefix='silx-mask-trace-') as directory:
+    os.chdir(directory)
+    result = pytest.main([str(path) + '::TestScatterMaskToolsWidget::testSigMaskChangedEmitted', '--rootdir=' + str(path.parents[3]), '--qt-binding=PyQt5', '-s', '-v'])
+sys.exit(result)
