@@ -63,15 +63,20 @@ class TracePlugin:
         else:
             raise RuntimeError('Target test missing from full-suite collection')
 
-trace('environment', platform=platform.platform(), python=sys.version, binding=qt.BINDING, qt=qt.qVersion(), pyqt=qt.PYQT_VERSION_STR, numpy=numpy.__version__)
-path = pathlib.Path(silx.__file__).resolve().parent
-output = pathlib.Path(__file__).resolve().parent / 'output'
-output.mkdir(exist_ok=True)
-original_directory = os.getcwd()
-with tempfile.TemporaryDirectory(prefix='silx-mask-trace-') as directory:
-    try:
-        os.chdir(directory)
-        result = pytest.main([str(path), '--rootdir=' + str(path), '--qt-binding=PyQt5', '-s', '-vv', '--junitxml=' + str(output / 'full-suite.xml')], plugins=[TracePlugin()])
-    finally:
-        os.chdir(original_directory)
-sys.exit(result)
+def main():
+    trace('environment', platform=platform.platform(), python=sys.version, binding=qt.BINDING, qt=qt.qVersion(), pyqt=qt.PYQT_VERSION_STR, numpy=numpy.__version__)
+    path = pathlib.Path(silx.__file__).resolve().parent
+    output = pathlib.Path(__file__).resolve().parent / 'output'
+    output.mkdir(exist_ok=True)
+    original_directory = os.getcwd()
+    with tempfile.TemporaryDirectory(prefix='silx-mask-trace-') as directory:
+        try:
+            os.chdir(directory)
+            result = pytest.main([str(path), '--rootdir=' + str(path), '--qt-binding=PyQt5', '-s', '-vv', '--junitxml=' + str(output / 'full-suite.xml')], plugins=[TracePlugin()])
+        finally:
+            os.chdir(original_directory)
+    return result
+
+
+if __name__ == '__main__':
+    sys.exit(main())
